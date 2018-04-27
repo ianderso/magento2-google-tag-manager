@@ -73,6 +73,8 @@ class Order extends DataObject
      */
     public function getOrderLayer()
     {
+        return $this->getEnhancedEcommOrderLayer();
+
         $collection = $this->getOrderCollection();
 
         if (!$collection) {
@@ -108,6 +110,48 @@ class Order extends DataObject
             ];
 
             $result[] = $transaction;
+        }
+
+        return $result;
+    }
+
+    public function getEnhancedEcommOrderLayer() {
+        $collection = $this->getOrderCollection();
+
+        if (!$collection) {
+            return false;
+        }
+
+        $result = [];
+
+        /* @var \Magento\Sales\Model\Order $order */
+
+        foreach ($collection as $order) {
+	        $products = [];
+	        foreach ($order->getAllVisibleItems() as $item) {
+	            $products[] = array(
+	                'sku' => $item->getSku(),
+	                'name' => $this->escapeJsQuote($item->getName()),
+	                'price' => $this->gtmHelper->formatPrice($item->getBasePrice()),
+	                'quantity' => $item->getQtyOrdered() * 1
+	            );
+	        }
+	
+	        $result[] = array(
+	            'event' => 'purchase',
+	            'ecommerce' => array(
+	                'purchase' => array(
+	                    'actionField' => array(
+	                        'id' => $order->getIncrementId(),
+	                        'coupon' => $order->getCouponCode(),
+	                        'revenue' => $this->gtmHelper->formatPrice($order->getBaseGrandTotal()),
+	                        'shipping' => $this->gtmHelper->formatPrice($order->getBaseShippingAmount()),
+	                        'tax' => $this->gtmHelper->formatPrice($order->getTaxAmount()),
+	                    ),
+	                    'products' => $products
+	                )
+	            )
+	        );
         }
 
         return $result;
